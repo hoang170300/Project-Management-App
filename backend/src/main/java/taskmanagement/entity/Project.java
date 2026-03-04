@@ -1,127 +1,114 @@
 package taskmanagement.entity;
 
 import taskmanagement.enums.ProjectStatus;
+import jakarta.persistence.*;
+import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
+
+@Entity
+@Table(name = "projects")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Project {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String name;
-    private String description;
-    private ProjectStatus status;
 
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Column(length = 1000)
+    private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private ProjectStatus status = ProjectStatus.PLANNING;
+
+    @Column(name = "start_date")
     private LocalDate startDate;
+
+    @Column(name = "end_date")
     private LocalDate endDate;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean deleted = false;
 
-    private Long createdById;
-    private List<Long> memberIds = new ArrayList<>();
-    private List<Task> tasks = new ArrayList<>();
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
+    @Column(name = "deleted_by_id")
+    private Long deletedBy;
+
+    @Column(name = "created_by_id", nullable = false)
+    private Long createdBy;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_by_id")
+    private Long updatedBy;
+
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // ===== Constructor =====
-    public Project(Long id,
-                   String name,
-                   String description,
-                   LocalDate startDate,
-                   LocalDate endDate,
-                   Long createdById) {
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Task> tasks = new ArrayList<>();
 
-        validate(name, startDate, endDate, createdById);
-
-        this.id = id;
-        this.name = name;
-        this.description = description;
-        this.startDate = startDate;
-        this.endDate = endDate;
-        this.status = ProjectStatus.PLANNING;
-        this.createdById = createdById;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+        if (deleted == null) {
+            deleted = false;
+        }
     }
 
-    // ===== Validation =====
-    private void validate(String name,
-                          LocalDate startDate,
-                          LocalDate endDate,
-                          Long createdById) {
-
-        if (name == null || name.trim().isEmpty())
-            throw new IllegalArgumentException("Tên project không được để trống");
-
-        if (startDate == null)
-            throw new IllegalArgumentException("Ngày bắt đầu không được null");
-
-        if (endDate != null && endDate.isBefore(startDate))
-            throw new IllegalArgumentException("Ngày kết thúc phải sau ngày bắt đầu");
-
-        if (createdById == null)
-            throw new IllegalArgumentException("Project phải có người tạo");
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
-    // ===== Business Logic =====
-
-    public void addMember(Long userId) {
-        if (status == ProjectStatus.CANCELLED)
-            throw new IllegalStateException("Project đã bị hủy");
-
-        if (!memberIds.contains(userId))
-            memberIds.add(userId);
-
-        this.updatedAt = LocalDateTime.now();
+    public boolean isActive() {
+        return !deleted && status == ProjectStatus.ACTIVE;
     }
 
-    public void removeMember(Long userId) {
-        memberIds.remove(userId);
-        this.updatedAt = LocalDateTime.now();
+    public boolean canAddTask() {
+
+        return status == ProjectStatus.ACTIVE && !deleted;
     }
 
     public void addTask(Task task) {
-        if (!status.canAddTask())
-            throw new IllegalStateException("Project không thể thêm task ở trạng thái này");
-
-        if (!task.getProjectId().equals(this.id))
-            throw new IllegalArgumentException("Task không thuộc project này");
-
         tasks.add(task);
-        this.updatedAt = LocalDateTime.now();
+        task.setProject(this);
     }
 
-    public void updateStatus(ProjectStatus newStatus) {
-        if (this.status == ProjectStatus.COMPLETED ||
-                this.status == ProjectStatus.CANCELLED)
-            throw new IllegalStateException("Project đã kết thúc");
-
-        this.status = newStatus;
-        this.updatedAt = LocalDateTime.now();
+    public void removeTask(Task task) {
+        tasks.remove(task);
+        task.setProject(null);
     }
-
-    // ===== Getter =====
-
-    public Long getId() { return id; }
-    public ProjectStatus getStatus() { return status; }
-    public List<Task> getTasks() { return tasks; }
-    public List<Long> getMemberIds() { return memberIds; }
-
-    // ===== equals & hashCode =====
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof Project)) return false;
         Project project = (Project) o;
-        return Objects.equals(id, project.id);
+        return id != null && id.equals(project.getId());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id);
+        return getClass().hashCode();
     }
 }

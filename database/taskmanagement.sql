@@ -282,5 +282,31 @@ SELECT
     (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = t.TABLE_NAME) AS ColumnCount
 FROM INFORMATION_SCHEMA.TABLES t
 WHERE TABLE_TYPE = 'BASE TABLE'
+
 ORDER BY TABLE_NAME;
 
+ALTER TABLE projects
+ADD updated_by_id BIGINT NULL;
+
+ALTER TABLE projects
+ADD CONSTRAINT fk_project_updated_by
+FOREIGN KEY (updated_by_id)
+REFERENCES users(id)
+ON DELETE SET NULL;
+
+CREATE INDEX idx_projects_updated_by ON projects(updated_by_id);
+
+ALTER TABLE tasks
+ADD updated_by BIGINT NULL;
+
+ALTER TABLE tasks
+ADD CONSTRAINT fk_task_updated_by
+FOREIGN KEY (updated_by)
+REFERENCES users(id)
+ON DELETE NO ACTION;
+
+CREATE INDEX idx_tasks_updated_by ON tasks(updated_by);
+
+SELECT COLUMN_NAME
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'projects';
