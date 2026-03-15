@@ -1,6 +1,5 @@
 package taskmanagement.service.impl;
 
-
 import taskmanagement.dto.Request.TaskRequest;
 import taskmanagement.dto.Response.TaskResponse;
 import taskmanagement.entity.Project;
@@ -11,6 +10,7 @@ import taskmanagement.repository.ProjectRepository;
 import taskmanagement.repository.TaskRepository;
 import taskmanagement.repository.UserRepository;
 import taskmanagement.service.TaskService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
-
 
 @Service
 @RequiredArgsConstructor
@@ -33,10 +32,19 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse createTask(TaskRequest requestDTO) {
 
         Project project = projectRepository.findById(requestDTO.getProjectId())
-                .orElseThrow(() -> new RuntimeException("Project not found with id: " + requestDTO.getProjectId()));
+                .orElseThrow(() ->
+                        new RuntimeException("Project not found with id: " + requestDTO.getProjectId()));
 
-        User creator = userRepository.findById(requestDTO.getCreatedBy())
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + requestDTO.getCreatedBy()));
+        // NEW LOGIC: project must allow adding tasks
+        if (!project.canAddTask()) {
+            throw new RuntimeException(
+                    "Cannot add tasks to project with status: " + project.getStatus()
+            );
+        }
+
+        userRepository.findById(requestDTO.getCreatedBy())
+                .orElseThrow(() ->
+                        new RuntimeException("User not found with id: " + requestDTO.getCreatedBy()));
 
         Task task = Task.builder()
                 .title(requestDTO.getTitle())
@@ -52,7 +60,13 @@ public class TaskServiceImpl implements TaskService {
 
         if (requestDTO.getAssigneeId() != null) {
             User assignee = userRepository.findById(requestDTO.getAssigneeId())
-                    .orElseThrow(() -> new RuntimeException("Assignee not found with id: " + requestDTO.getAssigneeId()));
+                    .orElseThrow(() ->
+                            new RuntimeException("Assignee not found with id: " + requestDTO.getAssigneeId()));
+
+            if (assignee.getDeleted()) {
+                throw new RuntimeException("Cannot assign task to deleted user");
+            }
+
             task.setAssignee(assignee);
         }
 
@@ -73,14 +87,17 @@ public class TaskServiceImpl implements TaskService {
     @Transactional(readOnly = true)
     public TaskResponse getTaskById(Long id) {
         Task task = taskRepository.findByIdAndDeletedFalse(id)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + id));
+                .orElseThrow(() ->
+                        new RuntimeException("Task not found with id: " + id));
         return TaskResponse.fromEntity(task);
     }
 
     @Override
     public TaskResponse updateTask(Long id, TaskRequest requestDTO) {
+
         Task task = taskRepository.findByIdAndDeletedFalse(id)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + id));
+                .orElseThrow(() ->
+                        new RuntimeException("Task not found with id: " + id));
 
         task.setTitle(requestDTO.getTitle());
         task.setDescription(requestDTO.getDescription());
@@ -89,15 +106,32 @@ public class TaskServiceImpl implements TaskService {
         task.setUpdatedBy(requestDTO.getUpdatedBy());
         task.setUpdatedAt(LocalDateTime.now());
 
-        if (requestDTO.getProjectId() != null && !requestDTO.getProjectId().equals(task.getProject().getId())) {
+        // NEW LOGIC: update project if changed
+        if (requestDTO.getProjectId() != null &&
+                !requestDTO.getProjectId().equals(task.getProject().getId())) {
+
             Project newProject = projectRepository.findById(requestDTO.getProjectId())
-                    .orElseThrow(() -> new RuntimeException("Project not found with id: " + requestDTO.getProjectId()));
+                    .orElseThrow(() ->
+                            new RuntimeException("Project not found with id: " + requestDTO.getProjectId()));
+
+            if (!newProject.canAddTask()) {
+                throw new RuntimeException(
+                        "Cannot move task to project with status: " + newProject.getStatus()
+                );
+            }
+
             task.setProject(newProject);
         }
 
         if (requestDTO.getAssigneeId() != null) {
             User newAssignee = userRepository.findById(requestDTO.getAssigneeId())
-                    .orElseThrow(() -> new RuntimeException("Assignee not found with id: " + requestDTO.getAssigneeId()));
+                    .orElseThrow(() ->
+                            new RuntimeException("Assignee not found with id: " + requestDTO.getAssigneeId()));
+
+            if (newAssignee.getDeleted()) {
+                throw new RuntimeException("Cannot assign task to deleted user");
+            }
+
             task.setAssignee(newAssignee);
         }
 
@@ -107,8 +141,15 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public void deleteTask(Long id, Long deletedBy) {
+
         Task task = taskRepository.findByIdAndDeletedFalse(id)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + id));
+                .orElseThrow(() ->
+                        new RuntimeException("Task not found with id: " + id));
+
+        // NEW LOGIC: prevent deleting DONE tasks
+        if (task.getStatus() == TaskStatus.DONE) {
+            throw new RuntimeException("Cannot delete tasks that are already DONE");
+        }
 
         task.setDeleted(true);
         task.setDeletedAt(LocalDateTime.now());
@@ -119,14 +160,15 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public TaskResponse restoreTask(Long id) {
+
         Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + id));
+                .orElseThrow(() ->
+                        new RuntimeException("Task not found with id: " + id));
 
         if (!task.getDeleted()) {
             throw new RuntimeException("Task is not deleted");
         }
 
-        // Restore
         task.setDeleted(false);
         task.setDeletedAt(null);
         task.setDeletedBy(null);
@@ -137,13 +179,17 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public TaskResponse updateTaskStatus(Long id, TaskStatus newStatus, Long updatedBy) {
-        Task task = taskRepository.findByIdAndDeletedFalse(id)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + id));
 
-        // TUẦN 5 will add: Validate status transition
-        // if (!task.getStatus().canTransitionTo(newStatus)) {
-        //     throw new InvalidStatusTransitionException(...);
-        // }
+        Task task = taskRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Task not found with id: " + id));
+
+        // NEW LOGIC: validate status transition
+        if (!task.getStatus().canTransitionTo(newStatus)) {
+            throw new RuntimeException(
+                    "Invalid status transition: " + task.getStatus() + " -> " + newStatus
+            );
+        }
 
         task.setStatus(newStatus);
         task.setUpdatedBy(updatedBy);
@@ -155,16 +201,18 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public TaskResponse assignTask(Long taskId, Long userId, Long updatedBy) {
+
         Task task = taskRepository.findByIdAndDeletedFalse(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + taskId));
+                .orElseThrow(() ->
+                        new RuntimeException("Task not found with id: " + taskId));
 
         User assignee = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+                .orElseThrow(() ->
+                        new RuntimeException("User not found with id: " + userId));
 
-        // TUẦN 5 will add: Validate user is project member
-        // if (!task.getProject().hasMember(assignee)) {
-        //     throw new BusinessRuleException("User is not a member of this project");
-        // }
+        if (assignee.getDeleted()) {
+            throw new RuntimeException("Cannot assign task to deleted user");
+        }
 
         task.setAssignee(assignee);
         task.setUpdatedBy(updatedBy);
@@ -177,6 +225,11 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasksByProject(Long projectId) {
+
+        projectRepository.findById(projectId)
+                .orElseThrow(() ->
+                        new RuntimeException("Project not found with id: " + projectId));
+
         return taskRepository.findByProjectIdAndDeletedFalse(projectId)
                 .stream()
                 .map(TaskResponse::fromEntity)
@@ -186,6 +239,11 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasksByUser(Long userId) {
+
+        userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found with id: " + userId));
+
         return taskRepository.findByAssigneeIdAndDeletedFalse(userId)
                 .stream()
                 .map(TaskResponse::fromEntity)
@@ -195,10 +253,10 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasksByStatus(TaskStatus status) {
+
         return taskRepository.findByStatusAndDeletedFalse(status)
                 .stream()
-                .map(TaskResponse
-                        ::fromEntity)
+                .map(TaskResponse::fromEntity)
                 .collect(Collectors.toList());
     }
 }
