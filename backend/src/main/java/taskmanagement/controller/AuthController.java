@@ -10,36 +10,35 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 
-/**
- * Auth Controller
- * TUẦN 7: Register & Login endpoints
- */
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
+@Tag(name = "1. Authentication", description = "Đăng ký / Đăng nhập")
 public class AuthController {
 
     private final AuthService authService;
 
-    /**
-     * POST /api/auth/register - Register new user
-     */
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
+    @Operation(summary = "Đăng ký tài khoản mới")
+    @SecurityRequirements
+    public ResponseEntity<ApiResponse<AuthResponse>> register(
+            @Valid @RequestBody RegisterRequest request) {
         AuthResponse authResponse = authService.register(request);
-        ApiResponse<AuthResponse> response = ApiResponse.success("User registered successfully", authResponse);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("User registered successfully", authResponse));
     }
 
-    /**
-     * POST /api/auth/login - Login user
-     */
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
+    @Operation(summary = "Đăng nhập → nhận JWT token")
+    @SecurityRequirements
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
+            @Valid @RequestBody LoginRequest request) {
         AuthResponse authResponse = authService.login(request);
-        ApiResponse<AuthResponse> response = ApiResponse.success("Login successful", authResponse);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("Login successful", authResponse));
     }
 }

@@ -45,7 +45,7 @@ class UserServiceTest {
         existingUser.setRoles(new HashSet<>());
     }
 
-    // ── findById() ────────────────────────────────────────────────────────
+
     @Test
     @DisplayName("✅ findById: tìm thấy user active")
     void findById_Found() {
@@ -67,8 +67,6 @@ class UserServiceTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("999");
     }
-
-    // ── create() ──────────────────────────────────────────────────────────
     @Test
     @DisplayName("✅ create: thành công khi username và email chưa tồn tại")
     void create_Success() {
@@ -127,15 +125,12 @@ class UserServiceTest {
         verify(userRepository, never()).save(any());
     }
 
-    // ── delete() (soft delete) ────────────────────────────────────────────
     @Test
     @DisplayName("✅ delete: soft delete thành công")
     void delete_Success() {
         when(userRepository.findByIdActive(1L)).thenReturn(Optional.of(existingUser));
 
         userService.delete(1L);
-
-        // Verify: save() được gọi sau khi softDelete()
         verify(userRepository).save(existingUser);
         assertThat(existingUser.isDeleted()).isTrue();
     }
@@ -151,12 +146,10 @@ class UserServiceTest {
 
         verify(userRepository, never()).save(any());
     }
-
-    // ── restore() ─────────────────────────────────────────────────────────
-    @Test
+     @Test
     @DisplayName("✅ restore: khôi phục user đã xóa thành công")
     void restore_Success() {
-        existingUser.softDelete(); // đánh dấu đã xóa trước
+        existingUser.softDelete();
         when(userRepository.findById(1L)).thenReturn(Optional.of(existingUser));
         when(userRepository.save(any())).thenReturn(existingUser);
 
@@ -169,7 +162,6 @@ class UserServiceTest {
     @Test
     @DisplayName("❌ restore: user chưa bị xóa → RuntimeException")
     void restore_NotDeleted_ThrowsException() {
-        // existingUser.deleted = false (chưa xóa)
         when(userRepository.findById(1L)).thenReturn(Optional.of(existingUser));
 
         assertThatThrownBy(() -> userService.restore(1L))
@@ -177,7 +169,6 @@ class UserServiceTest {
                 .hasMessageContaining("not deleted");
     }
 
-    // ── findAll() ─────────────────────────────────────────────────────────
     @Test
     @DisplayName("✅ findAll: trả về danh sách user active")
     void findAll_ReturnsList() {

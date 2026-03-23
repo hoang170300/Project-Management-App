@@ -42,7 +42,6 @@ class TaskServiceTest {
     @InjectMocks
     private TaskServiceImpl taskService;
 
-    // ── Test data ─────────────────────────────────────────────────────────
     private User manager;
     private User member;
     private User outsider;
@@ -81,13 +80,12 @@ class TaskServiceTest {
         outsider.setDeleted(false);
         outsider.setRoles(new HashSet<>());
 
-        // Projects — Project không có field manager/members riêng,
-        // dùng createdBy để track manager
+        // Projects
         activeProject = new Project();
         activeProject.setId(10L);
         activeProject.setName("Active Project");
         activeProject.setStatus(ProjectStatus.ACTIVE);
-        activeProject.setCreatedBy(1L);  // manager tạo
+        activeProject.setCreatedBy(1L);
         activeProject.setDeleted(false);
 
         completedProject = new Project();
@@ -103,7 +101,7 @@ class TaskServiceTest {
         todoTask.setTitle("Todo Task");
         todoTask.setStatus(TaskStatus.TODO);
         todoTask.setProject(activeProject);
-        todoTask.setAssignee(member);       // field thực tế: assignee (không phải assignedUser)
+        todoTask.setAssignee(member);
         todoTask.setCreatedBy(1L);
         todoTask.setCreatedAt(LocalDateTime.now());
         todoTask.setUpdatedAt(LocalDateTime.now());
@@ -135,9 +133,6 @@ class TaskServiceTest {
         doneTask.setPriority(Priority.MEDIUM);
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // createTask
-    // ══════════════════════════════════════════════════════════════════════
     @Nested
     @DisplayName("createTask()")
     class CreateTask {
@@ -147,7 +142,7 @@ class TaskServiceTest {
             req.setTitle("New Task");
             req.setDescription("Desc");
             req.setProjectId(projectId);
-            req.setAssigneeId(assigneeId);   // field thực tế: assigneeId
+            req.setAssigneeId(assigneeId);
             req.setPriority(Priority.MEDIUM);
             req.setCreatedBy(1L);
             req.setDeadline(LocalDate.now().plusDays(7));
@@ -160,7 +155,6 @@ class TaskServiceTest {
             TaskRequest request = buildRequest(10L, 2L);
 
             when(projectRepository.findById(10L)).thenReturn(Optional.of(activeProject));
-            // Service gọi findById(1L) cho createdBy, findById(2L) cho assignee
             when(userRepository.findById(1L)).thenReturn(Optional.of(manager));
             when(userRepository.findById(2L)).thenReturn(Optional.of(member));
             when(taskRepository.save(any(Task.class))).thenAnswer(inv -> {
@@ -195,15 +189,11 @@ class TaskServiceTest {
         @Test
         @DisplayName("❌ Project COMPLETED → canAddTask() = false → exception")
         void createTask_ProjectNotActive() {
-            // Kiểm tra canAddTask() trả false cho project COMPLETED
             assertThat(completedProject.canAddTask()).isFalse();
             assertThat(activeProject.canAddTask()).isTrue();
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // updateTaskStatus
-    // ══════════════════════════════════════════════════════════════════════
     @Nested
     @DisplayName("updateTaskStatus()")
     class UpdateTaskStatus {
@@ -241,9 +231,6 @@ class TaskServiceTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // getTasksByProject
-    // ══════════════════════════════════════════════════════════════════════
     @Nested
     @DisplayName("getTasksByProject()")
     class GetTasksByProject {
@@ -251,7 +238,6 @@ class TaskServiceTest {
         @Test
         @DisplayName("✅ Trả về list task theo projectId")
         void getTasksByProject_ReturnsList() {
-            // Service gọi projectRepository.findById() trước để validate
             when(projectRepository.findById(10L)).thenReturn(Optional.of(activeProject));
             when(taskRepository.findByProjectIdAndDeletedFalse(10L))
                     .thenReturn(List.of(todoTask, inProgressTask, doneTask));
@@ -284,9 +270,6 @@ class TaskServiceTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // getTasksByAssignee
-    // ══════════════════════════════════════════════════════════════════════
     @Nested
     @DisplayName("getTasksByUser()")
     class GetTasksByUser {
@@ -315,9 +298,6 @@ class TaskServiceTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // Project.canAddTask() — business rule
-    // ══════════════════════════════════════════════════════════════════════
     @Nested
     @DisplayName("Project.canAddTask() business rule")
     class ProjectCanAddTask {
@@ -351,9 +331,6 @@ class TaskServiceTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // assignTask
-    // ══════════════════════════════════════════════════════════════════════
     @Nested
     @DisplayName("assignTask()")
     class AssignTask {
@@ -386,9 +363,6 @@ class TaskServiceTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // deleteTask (soft delete)
-    // ══════════════════════════════════════════════════════════════════════
     @Nested
     @DisplayName("deleteTask()")
     class DeleteTask {
@@ -419,9 +393,6 @@ class TaskServiceTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // restoreTask
-    // ══════════════════════════════════════════════════════════════════════
     @Nested
     @DisplayName("restoreTask()")
     class RestoreTask {
@@ -452,9 +423,6 @@ class TaskServiceTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // TaskResponse.fromEntity() — mapping
-    // ══════════════════════════════════════════════════════════════════════
     @Nested
     @DisplayName("TaskResponse.fromEntity()")
     class TaskResponseMapping {
@@ -464,7 +432,6 @@ class TaskServiceTest {
         void fromEntity_MapsAssigneeId() {
             TaskResponse response = TaskResponse.fromEntity(todoTask);
 
-            // field trong TaskResponse là assigneeId (không phải assignedUserId)
             assertThat(response.getAssigneeId()).isEqualTo(2L);
             assertThat(response.getAssigneeName()).isEqualTo("member");
         }

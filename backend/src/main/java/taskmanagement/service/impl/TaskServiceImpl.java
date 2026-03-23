@@ -35,7 +35,6 @@ public class TaskServiceImpl implements TaskService {
                 .orElseThrow(() ->
                         new RuntimeException("Project not found with id: " + requestDTO.getProjectId()));
 
-        // NEW LOGIC: project must allow adding tasks
         if (!project.canAddTask()) {
             throw new RuntimeException(
                     "Cannot add tasks to project with status: " + project.getStatus()
@@ -106,7 +105,6 @@ public class TaskServiceImpl implements TaskService {
         task.setUpdatedBy(requestDTO.getUpdatedBy());
         task.setUpdatedAt(LocalDateTime.now());
 
-        // NEW LOGIC: update project if changed
         if (requestDTO.getProjectId() != null &&
                 !requestDTO.getProjectId().equals(task.getProject().getId())) {
 
@@ -146,7 +144,6 @@ public class TaskServiceImpl implements TaskService {
                 .orElseThrow(() ->
                         new RuntimeException("Task not found with id: " + id));
 
-        // NEW LOGIC: prevent deleting DONE tasks
         if (task.getStatus() == TaskStatus.DONE) {
             throw new RuntimeException("Cannot delete tasks that are already DONE");
         }
@@ -184,7 +181,6 @@ public class TaskServiceImpl implements TaskService {
                 .orElseThrow(() ->
                         new RuntimeException("Task not found with id: " + id));
 
-        // NEW LOGIC: validate status transition
         if (!task.getStatus().canTransitionTo(newStatus)) {
             throw new RuntimeException(
                     "Invalid status transition: " + task.getStatus() + " -> " + newStatus

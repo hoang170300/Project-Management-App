@@ -21,8 +21,7 @@ class TaskTest {
         task.setDeleted(false);
     }
 
-    // ── isActive() ────────────────────────────────────────────────────────
-    @Test
+     @Test
     @DisplayName("✅ Task chưa xóa → isActive() = true")
     void isActive_NotDeleted_ReturnsTrue() {
         assertThat(task.isActive()).isTrue();
@@ -35,7 +34,6 @@ class TaskTest {
         assertThat(task.isActive()).isFalse();
     }
 
-    // ── Status field (setter/getter) ──────────────────────────────────────
     @Test
     @DisplayName("✅ setStatus TODO → getStatus() = TODO")
     void setStatus_Todo() {
@@ -57,7 +55,6 @@ class TaskTest {
         assertThat(task.getStatus()).isEqualTo(TaskStatus.DONE);
     }
 
-    // ── isOverdue() ───────────────────────────────────────────────────────
     @Test
     @DisplayName("✅ deadline quá khứ + status TODO → isOverdue() = true")
     void isOverdue_PastDeadline_NotDone_ReturnsTrue() {
@@ -89,8 +86,7 @@ class TaskTest {
         assertThat(task.isOverdue()).isFalse();
     }
 
-    // ── equals & hashCode ─────────────────────────────────────────────────
-    @Test
+     @Test
     @DisplayName("✅ 2 task cùng ID → equals() = true")
     void equals_SameId_AreEqual() {
         Task t2 = new Task();
