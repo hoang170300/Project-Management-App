@@ -30,7 +30,7 @@ mvn spring-boot:run
 ```
 
 ### 3. Swagger UI
-`http://localhost:8080/swagger-ui.html`
+`http://localhost:8089/swagger-ui.html`
 
 ## API Endpoints
 
